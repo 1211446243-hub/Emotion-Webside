@@ -6,3 +6,7 @@ out/
 *.tsbuildinfo
 output/
 .playwright-cli/
+
+.vercel
+.api-export-hold/
+.debug-export-hold/

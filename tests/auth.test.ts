@@ -13,6 +13,9 @@ test("only implemented local return paths are allowed", () => {
   for (const path of [null, "https://example.com", "//example.com", "javascript:alert(1)", "/login", "/me/unknown", "/\\evil", "%2f%2fevil"]) assert.equal(getSafeReturnTo(path), "/#create");
   assert.equal(getSafeReturnTo("/"), "/");
   assert.equal(getSafeReturnTo("/pricing"), "/pricing");
+  assert.equal(getSafeReturnTo("/artwork?id=work_1"), "/artwork?id=work_1");
+  assert.equal(getSafeReturnTo("/artwork?id=work_1&view=public"), "/artwork?id=work_1&view=public");
+  assert.equal(getSafeReturnTo("/artwork?id=work_1&view=private"), "/#create");
 });
 
 test("mock session, storage failures, subscriptions and password privacy", async () => {

@@ -1,3 +1,5 @@
+import { assetUrl } from "@/lib/site-path";
+
 /** Completion is shown only once the local artwork is actually loaded. */
 export function preloadImage(url: string, signal: AbortSignal): Promise<void> {
   signal.throwIfAborted();
@@ -9,6 +11,6 @@ export function preloadImage(url: string, signal: AbortSignal): Promise<void> {
     image.onload = () => { cleanup(); resolve(); };
     image.onerror = () => { cleanup(); reject(new Error("Artwork could not be loaded.")); };
     signal.addEventListener("abort", cancel, { once: true });
-    image.src = url;
+    image.src = assetUrl(url);
   });
 }

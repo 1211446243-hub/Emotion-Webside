@@ -20,8 +20,17 @@ export const authService: AuthProvider = {
   },
 };
 
+function isArtworkReturn(value: string): boolean {
+  let url: URL;
+  try { url = new URL(value, "https://local.invalid"); } catch { return false; }
+  if (url.origin !== "https://local.invalid" || (url.pathname !== "/artwork" && url.pathname !== "/artwork/")) return false;
+  const id = url.searchParams.get("id");
+  const view = url.searchParams.get("view");
+  return Boolean(id && /^[a-zA-Z0-9_-]+$/.test(id) && (view === null || view === "public") && [...url.searchParams.keys()].every((key) => key === "id" || key === "view"));
+}
+
 /** Only implemented destinations are accepted; never redirect to supplied external URLs. */
 export function getSafeReturnTo(value: string | null): string {
-  if (value && (["/", "/#create", "/create", "/pricing", "/me", "/me/artworks", "/me/favorites", "/me/purchases", "/gallery"].includes(value) || /^\/artwork\/[a-zA-Z0-9_-]+$/.test(value))) return value;
+  if (value && (["/", "/#create", "/create", "/pricing", "/me", "/me/artworks", "/me/favorites", "/me/purchases", "/gallery"].includes(value) || isArtworkReturn(value))) return value;
   return "/#create";
 }

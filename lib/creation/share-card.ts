@@ -1,4 +1,5 @@
 import { siteConfig } from "@/config/site";
+import { assetUrl } from "@/lib/site-path";
 
 export type ShareCardStyle = "editorial" | "immersive";
 export interface ShareCardContent { imageUrl: string; quote: string; createdAt: string }
@@ -6,7 +7,7 @@ export interface ShareCardContent { imageUrl: string; quote: string; createdAt: 
 /** Same local artwork, one canvas for both preview and export. No private text is included. */
 export async function renderShareCard(content: ShareCardContent, style: ShareCardStyle): Promise<Blob> {
   const image = new Image();
-  image.src = content.imageUrl;
+  image.src = assetUrl(content.imageUrl);
   await image.decode();
   const canvas = document.createElement("canvas");
   canvas.width = 1080; canvas.height = 1350;

@@ -3,6 +3,9 @@ import type { GenerationEvent, GenerationInput, GenerationStage } from "@/types/
 import { mockArtworks } from "@/data/mock-artworks";
 import { isCreationSession } from "@/lib/creation/session-validation";
 import { consumeDebugFailure } from "@/lib/debug/service";
+import { GenerationService } from "@/lib/ai/generation-service";
+import { MockTextAIProvider } from "@/lib/ai/text/mock-provider";
+import { MockImageProvider } from "@/lib/ai/image/mock-provider";
 
 function hasArtworkFields(art: object): boolean {
   return ["id", "userId", "originalText", "quote", "provider", "model", "createdAt", "updatedAt", "stylePreset"].every((key) => key in art && typeof Reflect.get(art, key) === "string")
@@ -26,8 +29,16 @@ function parseEvent(line: string): GenerationEvent {
   throw new Error("Invalid generation response.");
 }
 
-/** UI facade: only same-origin transport. Provider selection and orchestration stay on the server. */
+/** GitHub Pages has no server. Mock providers run in the browser for that build only. */
+async function generateArtworkLocally(input: GenerationInput, options: { signal: AbortSignal; onProgress: (stage: GenerationStage) => void }): Promise<Artwork> {
+  if (consumeDebugFailure()) throw new Error("这一刻没有被成功留下。");
+  const service = new GenerationService({ text: new MockTextAIProvider(), image: new MockImageProvider() });
+  return service.generateArtwork(input, { signal: options.signal, onProgress: options.onProgress });
+}
+
+/** UI facade: same-origin transport when a server exists, local Mock when the site is static. */
 export async function generateArtwork(input: GenerationInput, options: { signal: AbortSignal; onProgress: (stage: GenerationStage) => void }): Promise<Artwork> {
+  if (process.env.NEXT_PUBLIC_STATIC_GENERATION === "1") return generateArtworkLocally(input, options);
   if (consumeDebugFailure()) throw new Error("这一刻没有被成功留下。");
   const signal = AbortSignal.any([options.signal, AbortSignal.timeout(20000)]);
   const response = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input), signal, cache: "no-store" });

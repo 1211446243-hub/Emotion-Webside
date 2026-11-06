@@ -12,6 +12,7 @@ import { generateArtwork } from "@/lib/ai/generation-client";
 import { preloadImage } from "@/lib/utils/preload-image";
 import { generationConfig } from "@/config/generation";
 import { getArtworkAlt } from "@/data/mock-artworks";
+import { artworkPath } from "@/lib/site-path";
 import { creationBalanceService, creationPolicyService } from "@/lib/commerce/commerce-service";
 import { creationCompletionService } from "@/lib/commerce/creation-completion";
 import type { Artwork } from "@/types/artwork";
@@ -92,7 +93,7 @@ export function GenerationState() {
   useEffect(() => { if (state.status !== "working") heading.current?.focus({ preventScroll: true }); }, [state.status]);
   useEffect(() => {
     if (!savedId) return;
-    const timer = setTimeout(() => router.replace(`/artwork/${savedId}`), 1400);
+    const timer = setTimeout(() => router.replace(artworkPath(savedId)), 1400);
     return () => clearTimeout(timer);
   }, [savedId, router]);
 
@@ -115,7 +116,7 @@ export function GenerationState() {
       try { const completed = await creationCompletionService.complete(state.artwork); setBalance(completed.balance); setSaveError(""); setSavedId(completed.artwork.id); }
       catch (error) { setSaveError(error instanceof Error ? error.message : "保存失败，请重试。"); }
       finally { setSaving(false); }
-    }}>{saving ? "正在保存……" : "重试保存"}</button>}{savedId && <Link className="quiet-link" href={`/artwork/${savedId}`}>查看作品 ↗</Link>}</div>}
+    }}>{saving ? "正在保存……" : "重试保存"}</button>}{savedId && <Link className="quiet-link" href={artworkPath(savedId)}>查看作品 ↗</Link>}</div>}
     {!complete && <Link className="generation-back quiet-link" href="/#create">{state.status === "working" || state.status === "checking" ? "暂时停下，回去写" : "回去修改文字"}</Link>}
   </section>;
 }

@@ -1,5 +1,12 @@
 # 文件变更记录
 
+## GitHub Pages
+
+- 新增 `next.config.ts`、`scripts/export-github-pages.mjs`、`.github/workflows/pages.yml`：静态导出并发布到 `1211446243-hub.github.io/Emotion-Webside`。
+- 作品地址改为 `/artwork?id=`，以便静态托管打开任意作品。
+- GitHub Pages 构建在浏览器内运行 Mock 生成；本地开发仍走 `/api/generate`。
+- 未改动个人主页仓库 `1211446243-hub.github.io`。
+
 ## 商业化 Phase 6 最终验收
 
 - 修改 `components/commerce/mock-checkout-modal.tsx`：失败重试复用原订单；同步提交锁避免连续提交。

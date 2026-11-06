@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-打开 http://localhost:3000。检查命令：
+打开 http://localhost:3000。公开站点在 https://1211446243-hub.github.io/Emotion-Webside/ ，由 GitHub Pages 提供，不替换个人主页 https://1211446243-hub.github.io/ 。静态站点在浏览器里完成 Mock 生成；作品仍只保存在当前浏览器。检查命令：
 
 ```bash
 npm run lint

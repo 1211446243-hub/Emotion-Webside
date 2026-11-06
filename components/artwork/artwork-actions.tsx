@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Artwork, PublicArtwork } from "@/types/artwork";
 import { ShareCardModal } from "./share-card-modal";
 import { regenerationService } from "@/lib/creation/regeneration";
+import { absoluteArtworkUrl, artworkPath, assetUrl } from "@/lib/site-path";
 
 export function ArtworkActions({ artwork, owner = false, compact = false }: { artwork: Artwork | PublicArtwork; owner?: boolean; compact?: boolean }) {
   const { user } = useAuth(); const router = useRouter();
@@ -25,7 +26,7 @@ export function ArtworkActions({ artwork, owner = false, compact = false }: { ar
   };
   const requireUser = () => {
     if (user) return true;
-    router.push(`/login?returnTo=${encodeURIComponent(`/artwork/${artwork.id}`)}`); return false;
+    router.push(`/login?returnTo=${encodeURIComponent(artworkPath(artwork.id))}`); return false;
   };
   return <div className={compact ? "artwork-actions compact-actions" : "artwork-actions"}>
     <div className="action-row">
@@ -34,10 +35,10 @@ export function ArtworkActions({ artwork, owner = false, compact = false }: { ar
       {owner && !compact && <button type="button" disabled={busy} onClick={() => void run(async () => { await artworkService.saveGenerated(artwork as Artwork); return "已保存到本浏览器。"; })}>保存</button>}
       <button type="button" disabled={busy} aria-pressed={flags.data?.favorite ?? false} onClick={() => { if (requireUser()) void run(async () => { await artworkService.toggleFavorite(artwork.id); return flags.data?.favorite ? "已取消收藏" : "收藏成功"; }); }}>{flags.data?.favorite ? "取消收藏" : "收藏"}</button>
       {isPublic && <button type="button" disabled={busy} aria-pressed={flags.data?.liked ?? false} onClick={() => { if (requireUser()) void run(async () => { await artworkService.toggleLike(artwork.id); return flags.data?.liked ? "已取消点赞" : "已点赞"; }); }}>{flags.data?.liked ? "取消点赞" : "点赞"} · {artwork.likeCount}</button>}
-      {!compact && <a onClick={() => track("artwork_downloaded")} href={artwork.imageUrl} download={`moment-${artwork.id}.svg`}>下载</a>}
+      {!compact && <a onClick={() => track("artwork_downloaded")} href={assetUrl(artwork.imageUrl)} download={`moment-${artwork.id}.svg`}>下载</a>}
       {!compact && <button type="button" disabled={busy} onClick={() => void run(async () => {
         if (!isPublic) return "请先公开这一刻，再分享链接。";
-        const url = `${window.location.origin}/artwork/${artwork.id}?view=public`;
+        const url = absoluteArtworkUrl(artwork.id);
         if (navigator.share) {
           try { await navigator.share({ title: artwork.quote, url }); track("artwork_shared"); return "已打开分享。作品仅存于本浏览器，链接暂不能跨设备访问。"; }
           catch (error) { if (error instanceof Error && error.name === "AbortError") return ""; }

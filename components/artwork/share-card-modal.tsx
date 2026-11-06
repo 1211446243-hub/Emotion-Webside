@@ -4,6 +4,7 @@ import { track } from "@/lib/analytics/service";
 import { useEffect, useRef, useState } from "react";
 import type { Artwork } from "@/types/artwork";
 import { renderShareCard, saveShareCard, type ShareCardStyle } from "@/lib/creation/share-card";
+import { absoluteArtworkUrl } from "@/lib/site-path";
 
 export function ShareCardModal({ artwork, onClose }: { artwork: Artwork; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -44,7 +45,7 @@ export function ShareCardModal({ artwork, onClose }: { artwork: Artwork; onClose
       }}>系统分享</button>
       <button onClick={async () => {
         if (!artwork.isPublic) { setNotice("这幅作品仍是私密的。请先在详情页公开，再复制作品链接。"); return; }
-        try { await navigator.clipboard.writeText(`${location.origin}/artwork/${artwork.id}?view=public`); track("artwork_shared"); setNotice("链接已复制。当前作品仅保存在本浏览器，暂不能跨设备访问。"); }
+        try { await navigator.clipboard.writeText(absoluteArtworkUrl(artwork.id)); track("artwork_shared"); setNotice("链接已复制。当前作品仅保存在本浏览器，暂不能跨设备访问。"); }
         catch { setNotice("无法访问剪贴板，请从地址栏复制作品地址。"); }
       }}>复制作品链接</button>
     </div><p className="action-notice" role="status">{notice}</p>
