@@ -11,6 +11,7 @@ import type { Artwork, PublicArtwork } from "@/types/artwork";
 import { ShareCardModal } from "./share-card-modal";
 import { regenerationService } from "@/lib/creation/regeneration";
 import { absoluteArtworkUrl, artworkPath, assetUrl } from "@/lib/site-path";
+import { galleryEnabled } from "@/lib/storage/public-gallery";
 
 export function ArtworkActions({ artwork, owner = false, compact = false }: { artwork: Artwork | PublicArtwork; owner?: boolean; compact?: boolean }) {
   const { user } = useAuth(); const router = useRouter();
@@ -39,12 +40,13 @@ export function ArtworkActions({ artwork, owner = false, compact = false }: { ar
       {!compact && <button type="button" disabled={busy} onClick={() => void run(async () => {
         if (!isPublic) return "请先公开这一刻，再分享链接。";
         const url = absoluteArtworkUrl(artwork.id);
+        const hint = galleryEnabled() ? "打开链接的人可以看到这幅公开作品。" : "作品仅存于本浏览器，链接暂不能跨设备访问。";
         if (navigator.share) {
-          try { await navigator.share({ title: artwork.quote, url }); track("artwork_shared"); return "已打开分享。作品仅存于本浏览器，链接暂不能跨设备访问。"; }
+          try { await navigator.share({ title: artwork.quote, url }); track("artwork_shared"); return `已打开分享。${hint}`; }
           catch (error) { if (error instanceof Error && error.name === "AbortError") return ""; }
         }
-        if (!navigator.clipboard?.writeText) return "当前浏览器无法复制，请从地址栏复制链接。作品仅存于本浏览器。";
-        await navigator.clipboard.writeText(url); track("artwork_shared"); return "链接已复制。作品仅存于本浏览器，暂不能跨设备访问。";
+        if (!navigator.clipboard?.writeText) return `当前浏览器无法复制，请从地址栏复制链接。${hint}`;
+        await navigator.clipboard.writeText(url); track("artwork_shared"); return `链接已复制。${hint}`;
       })}>分享</button>}
       {owner && !compact && <><button type="button" disabled={busy} onClick={() => void run(async () => { const result = await artworkService.togglePublic(artwork.id); return result.isPublic ? "已公开" : "已取消公开"; })}>{isPublic ? "取消公开" : "公开这一刻"}</button><button type="button" className="danger-action" disabled={busy} onClick={() => { setNotice(""); setConfirm(true); }}>删除</button></>}
     </div>

@@ -3,6 +3,7 @@ import type { User } from "@/types/user";
 import type { ArtworkRepository, ArtworkUpdate, NewArtwork } from "./artwork-repository";
 import { mockArtworks } from "@/data/mock-artworks";
 import { isCreationSession } from "@/lib/creation/session-validation";
+import { GalleryError, galleryEnabled, getPublicMoment, listPublicMoments, publishMoment, unpublishMoment } from "./public-gallery";
 
 export const ARTWORK_STORAGE_KEY = "thought_artworks_v1";
 interface Store { version: 1; artworks: Artwork[]; authors: Record<string, string>; favorites: Record<string, string[]>; likes: Record<string, string[]> }
@@ -55,9 +56,16 @@ export class MockArtworkRepository implements ArtworkRepository {
     const user = this.user(); const art = store.artworks.find((item) => item.id === id && item.userId === user.id);
     if (!art) throw new StorageError("找不到这幅作品，或它不属于你。"); return art;
   }
-  private visible(store: Store, id: string): Artwork {
-    const user = this.user(); const art = store.artworks.find((item) => item.id === id && (item.isPublic || item.userId === user.id));
-    if (!art) throw new StorageError("这幅作品已不再可见。"); return art;
+  private async remote<T>(action: () => Promise<T>): Promise<T> {
+    try { return await action(); }
+    catch (error) { throw new StorageError(error instanceof GalleryError ? error.message : "作品广场暂时无法连接，请稍后再试。"); }
+  }
+  private async locate(store: Store, id: string): Promise<Artwork | PublicArtwork> {
+    const user = this.user();
+    const art = store.artworks.find((item) => item.id === id && (item.isPublic || item.userId === user.id));
+    if (art) return art;
+    if (galleryEnabled()) { const remoteArt = await this.remote(() => getPublicMoment(id)); if (remoteArt) return remoteArt; }
+    throw new StorageError("这幅作品已不再可见。");
   }
   private likeCount(store: Store, id: string) { return Object.values(store.likes).filter((list) => list.includes(id)).length; }
   private project(store: Store, art: Artwork): PublicArtwork {
@@ -99,25 +107,50 @@ export class MockArtworkRepository implements ArtworkRepository {
     return this.ownedView(store, art);
   }
   async delete(id: string) {
-    const store = this.read(); this.owner(store, id); store.artworks = store.artworks.filter((art) => art.id !== id);
+    const store = this.read(); const art = this.owner(store, id);
+    if (art.isPublic && galleryEnabled()) await this.remote(() => unpublishMoment(id));
+    store.artworks = store.artworks.filter((item) => item.id !== id);
     for (const map of [store.favorites, store.likes]) for (const key of Object.keys(map)) map[key] = map[key].filter((item) => item !== id);
     this.write(store);
   }
-  async togglePublic(id: string) { const store = this.read(); const art = this.owner(store, id); art.isPublic = !art.isPublic; art.updatedAt = new Date().toISOString(); this.write(store); return this.ownedView(store, art); }
-  async toggleFavorite(id: string) {
-    const store = this.read(); const art = this.visible(store, id); const user = this.user(); const list = new Set(store.favorites[user.id] ?? []);
-    if (list.has(id)) list.delete(id); else list.add(id); store.favorites[user.id] = [...list]; this.write(store);
-    return art.userId === user.id ? this.ownedView(store, art) : this.project(store, art);
+  async togglePublic(id: string) {
+    const store = this.read(); const art = this.owner(store, id); const next = !art.isPublic;
+    if (galleryEnabled()) {
+      await this.remote(() => next
+        ? publishMoment({ id: art.id, quote: art.quote, imageUrl: art.imageUrl, authorName: store.authors[art.userId] || this.user().name || "User", createdAt: art.createdAt })
+        : unpublishMoment(art.id));
+    }
+    art.isPublic = next; art.updatedAt = new Date().toISOString(); this.write(store); return this.ownedView(store, art);
   }
-  async isFavorite(id: string) { const store = this.read(); this.visible(store, id); return (store.favorites[this.user().id] ?? []).includes(id); }
-  async getPublicAll() { const store = this.read(); return store.artworks.filter((art) => art.isPublic).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((art) => this.project(store, art)); }
-  async getPublicById(id: string) { const store = this.read(); const art = store.artworks.find((item) => item.id === id && item.isPublic); return art ? this.project(store, art) : null; }
-  async getFavorites() { const user = this.user(); const store = this.read(); return store.artworks.filter((art) => (store.favorites[user.id] ?? []).includes(art.id) && (art.userId === user.id || art.isPublic)).map((art) => this.project(store, art)); }
-  async isLiked(id: string) { const store = this.read(); this.visible(store, id); return (store.likes[this.user().id] ?? []).includes(id); }
+  async toggleFavorite(id: string) {
+    const store = this.read(); const found = await this.locate(store, id); const user = this.user(); const list = new Set(store.favorites[user.id] ?? []);
+    if (list.has(id)) list.delete(id); else list.add(id); store.favorites[user.id] = [...list]; this.write(store);
+    if ("userId" in found) return found.userId === user.id ? this.ownedView(store, found) : this.project(store, found);
+    return { ...found, likeCount: this.likeCount(store, id) };
+  }
+  async isFavorite(id: string) { const store = this.read(); await this.locate(store, id); return (store.favorites[this.user().id] ?? []).includes(id); }
+  async getPublicAll() {
+    if (!galleryEnabled()) { const store = this.read(); return store.artworks.filter((art) => art.isPublic).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((art) => this.project(store, art)); }
+    const rows = await this.remote(() => listPublicMoments(true)); const store = this.read();
+    return rows.map((art) => ({ ...art, likeCount: this.likeCount(store, art.id) }));
+  }
+  async getPublicById(id: string) {
+    if (!galleryEnabled()) { const store = this.read(); const art = store.artworks.find((item) => item.id === id && item.isPublic); return art ? this.project(store, art) : null; }
+    const art = await this.remote(() => getPublicMoment(id)); return art ? { ...art, likeCount: this.likeCount(this.read(), id) } : null;
+  }
+  async getFavorites() {
+    const user = this.user(); const store = this.read(); const ids = new Set(store.favorites[user.id] ?? []);
+    const local = store.artworks.filter((art) => ids.has(art.id) && (art.userId === user.id || art.isPublic)).map((art) => this.project(store, art));
+    if (!galleryEnabled()) return local;
+    const seen = new Set(local.map((art) => art.id)); const rows = await this.remote(() => listPublicMoments());
+    return [...local, ...rows.filter((art) => ids.has(art.id) && !seen.has(art.id)).map((art) => ({ ...art, likeCount: this.likeCount(store, art.id) }))];
+  }
+  async isLiked(id: string) { const store = this.read(); await this.locate(store, id); return (store.likes[this.user().id] ?? []).includes(id); }
   async toggleLike(id: string) {
-    const user = this.user(); const store = this.read(); const art = this.visible(store, id);
-    if (!art.isPublic) throw new StorageError("只有公开作品可以点赞。");
+    const user = this.user(); const store = this.read(); const found = await this.locate(store, id);
+    if ("userId" in found && !found.isPublic) throw new StorageError("只有公开作品可以点赞。");
     const list = new Set(store.likes[user.id] ?? []); if (list.has(id)) list.delete(id); else list.add(id);
-    store.likes[user.id] = [...list]; this.write(store); return this.project(store, art);
+    store.likes[user.id] = [...list]; this.write(store);
+    return "userId" in found ? this.project(store, found) : { ...found, likeCount: this.likeCount(store, id) };
   }
 }
