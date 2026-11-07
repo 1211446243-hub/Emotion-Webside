@@ -7,7 +7,8 @@
 - `ai/prompt-builder.ts` 只将结构化分析转换为模型无关提示词，不接触 UI、存储或供应商。
 - `ai/image/types.ts` 定义接口；MockImageProvider 按提示词选择本地图片，工厂在服务端读取环境变量。
 - `storage/artwork-repository.ts` 定义持久化契约，增加公开投影、收藏列表、点赞和幂等保存生成结果的方法。
-- `storage/mock-artwork-repository.ts` 实现版本化 LocalStorage，读取时验证结构，写入失败明确报错。所有权检查和隐私投影在 Repository 层完成。
+- `storage/mock-artwork-repository.ts` 用版本化 LocalStorage 保存私密作品、收藏和点赞，读取时验证结构，写入失败明确报错。所有权检查和隐私投影在 Repository 层完成。
+- `storage/public-gallery.ts` 在 `NEXT_PUBLIC_SUPABASE_URL` 与 `NEXT_PUBLIC_SUPABASE_KEY` 都非空时，由浏览器请求公开投影。列表和单条读取调用 `public_moments`。公开调用 `publish_moment`，请求类别是作品 id、短句、本地 SVG 路径、昵称、创建时间和 `thought_gallery_owner_v1` 中的本机令牌（`moment_token`）。取消公开以及删除已公开作品调用 `unpublish_moment`，只发送作品 id 和该令牌。不上传原文、分析结果或提示词。点赞数只在本机计算，不写回远程。远程失败会报错，并且不把广场列表退回本机公开作品；本机公开标记要等远程调用成功后才改。两个变量缺任一则仍只用本机公开列表。表、RPC 的 SQL 和权限配置不在本仓库，此处不声称远程已验证或权限已通过。
 - `storage/artwork-service.ts` 是组合入口，页面不读取 LocalStorage、不创建具体 Repository。查询通过订阅同标签写入和其他标签的 storage 事件更新。
 - `commerce/creation-balance-repository.ts` 定义额度持久化契约；Mock 实现用 `untitled_commerce_v1` 原子保存余额变化与对应流水，并验证版本和数据结构。
 - `commerce/creation-balance-service.ts` 是免费发放、购买额度、消费和退款的唯一业务入口；`creation-policy-service.ts` 统一判断免费、付费或无额度。
