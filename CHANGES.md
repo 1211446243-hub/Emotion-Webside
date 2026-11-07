@@ -1,5 +1,12 @@
 # 文件变更记录
 
+## 说明文档
+
+- 更新 `README.md`、`lib/README.md`、`FUTURE.md`。
+- 在 `docs/commerce-phase-4-validation.md`、`docs/commerce-phase-6-validation.md`、`docs/phase-9-12-validation.md`、`docs/phase-13-final-validation.md` 开头加上状态注。
+- 说明与 `lib/storage/public-gallery.ts` 对齐：私密作品、账号、额度和模拟支付仍在本机；公开投影在配置齐全时走远程接口，不上传原文，点赞仍在本机。
+- 历史验收条目的原结论保留。未改业务代码、依赖锁定或配置值。
+
 ## GitHub Pages
 
 - 新增 `next.config.ts`、`scripts/export-github-pages.mjs`、`.github/workflows/pages.yml`：静态导出并发布到 `1211446243-hub.github.io/Emotion-Webside`。
